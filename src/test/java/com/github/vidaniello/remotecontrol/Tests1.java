@@ -57,7 +57,7 @@ public class Tests1 {
 		
 		try {
 			
-			MulticastPublisher mp = new MulticastPublisher(receiverPort+1, multicastAddress);
+			MulticastPublisher mp = new MulticastPublisher(receiverPort, multicastAddress);
 			
 			mp.pubblish("Test send!");
 			
