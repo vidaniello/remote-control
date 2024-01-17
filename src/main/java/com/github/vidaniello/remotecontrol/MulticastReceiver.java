@@ -6,9 +6,6 @@ import java.net.MulticastSocket;
 import java.net.SocketException;
 import java.util.concurrent.Callable;
 
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
-
 public class MulticastReceiver extends MulticastCommunication implements Callable<Void> {
 
 

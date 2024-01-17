@@ -39,7 +39,7 @@ public class Tests1 {
 			
 			service.submit(mr);
 			
-			Thread.sleep(20000);
+			Thread.sleep(480000);
 			
 			mr.close();
 			
