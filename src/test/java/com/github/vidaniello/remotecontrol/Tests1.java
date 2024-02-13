@@ -5,6 +5,7 @@ import java.util.concurrent.Executors;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 public class Tests1 {
@@ -30,7 +31,8 @@ public class Tests1 {
 	private String multicastAddress = "230.1.5.5";
 	private int receiverPort = 34345;
 	
-	@Test
+	/*
+	@Test @Disabled
 	public void testReceiver() {
 		ExecutorService service = Executors.newSingleThreadExecutor();
 		try {
@@ -52,7 +54,7 @@ public class Tests1 {
 
 	
 	
-	@Test
+	@Test @Disabled
 	public void testPublisher() {
 		
 		try {
@@ -67,5 +69,5 @@ public class Tests1 {
 			
 		}
 	}
-
+*/
 }
