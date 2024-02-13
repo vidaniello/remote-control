@@ -6,6 +6,7 @@ import java.net.MulticastSocket;
 import java.net.SocketException;
 import java.util.concurrent.Callable;
 
+/*
 public class MulticastReceiver extends MulticastCommunication implements Callable<Void> {
 
 
@@ -82,3 +83,4 @@ public class MulticastReceiver extends MulticastCommunication implements Callabl
 			}
 	}
 }
+*/
