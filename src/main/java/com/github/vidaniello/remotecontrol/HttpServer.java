@@ -9,6 +9,7 @@ import java.util.Date;
 import io.vertx.core.Handler;
 import io.vertx.core.Vertx;
 import io.vertx.core.http.HttpServerOptions;
+import io.vertx.core.http.HttpServerResponse;
 import io.vertx.core.net.SelfSignedCertificate;
 import io.vertx.core.net.SocketAddress;
 import io.vertx.ext.web.Router;
@@ -27,7 +28,7 @@ public class HttpServer {
 		
 	}
 	
-	public void start() throws SocketException {
+	public void start() throws Exception {
 		
 		selectedPort = port1;
 		
@@ -45,12 +46,9 @@ public class HttpServer {
 				isa = new InetSocketAddress(selectedPort);
 				
 				try(Socket sk3 = new Socket(isa.getAddress(),selectedPort);){
-					throw new SocketException("All port: "+port1+" "+port2+" "+port3+" already in use!");
+					throw new Exception("All port: "+port1+" "+port2+" "+port3+" already in use!");
 				}catch(IOException e){}
-				
 			}catch(IOException e){}
-			
-			
 		}catch(IOException e){}
 		
 		System.out.println("Selected port: "+selectedPort);
@@ -61,6 +59,8 @@ public class HttpServer {
 		Router router = Router.router(vertx);
 		
 		router.get("/stop")				.blockingHandler(this::onStop);
+		router.get("/ping")				.blockingHandler(this::onPing);
+		router.options("/ping")			.blockingHandler(this::onPingOption);
 		router.get()
 		.blockingHandler(ctx->{
 			if(ctx.request().path().equals("/"))
@@ -110,5 +110,32 @@ public class HttpServer {
 		vertx.close();
 	}
 	
+	private void onPing(RoutingContext ctx) {
+		if(ctx!=null) {
+			
+			String reqType = ctx.request().getHeader("Accept")!=null?ctx.request().getHeader("Accept"):"";
+			reqType = ctx.request().getHeader("content-type")!=null?ctx.request().getHeader("content-type"):reqType;
+			
+			if(reqType.contains("application/json")) {
+				addCorsPolicy(ctx.response());
+				ctx.response().putHeader("content-type", "application/json")
+				//.putHeader("Access-Control-Allow-Origin", "http://localhost:8080")
+				//.putHeader("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept")
+				.end("{\"response\": \"pong\"}");
+			}else
+				ctx.response().putHeader("content-type", "text/plain").end("pong\n");
+		}
+	}
+	
+	private void onPingOption(RoutingContext ctx) {
+		addCorsPolicy(ctx.response());
+		ctx.end();
+	}
+	
+	private void addCorsPolicy(HttpServerResponse resp) {
+		resp
+		.putHeader("Access-Control-Allow-Origin", "http://localhost:8080")
+		.putHeader("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept");
+	}
 	
 }
