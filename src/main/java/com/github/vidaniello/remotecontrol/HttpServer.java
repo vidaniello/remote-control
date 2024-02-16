@@ -1,15 +1,24 @@
 package com.github.vidaniello.remotecontrol;
 
+import java.io.BufferedReader;
 import java.io.IOException;
+import java.io.InputStreamReader;
 import java.net.InetSocketAddress;
 import java.net.Socket;
 import java.net.SocketException;
 import java.util.Date;
+import java.util.List;
+import java.util.Map;
 
+import io.netty.handler.codec.http.QueryStringDecoder;
 import io.vertx.core.Handler;
+import io.vertx.core.MultiMap;
 import io.vertx.core.Vertx;
+import io.vertx.core.http.HttpMethod;
 import io.vertx.core.http.HttpServerOptions;
+import io.vertx.core.http.HttpServerRequest;
 import io.vertx.core.http.HttpServerResponse;
+import io.vertx.core.net.PemKeyCertOptionsConverter;
 import io.vertx.core.net.SelfSignedCertificate;
 import io.vertx.core.net.SocketAddress;
 import io.vertx.ext.web.Router;
@@ -61,6 +70,9 @@ public class HttpServer {
 		router.get("/stop")				.blockingHandler(this::onStop);
 		router.get("/ping")				.blockingHandler(this::onPing);
 		router.options("/ping")			.blockingHandler(this::onPingOption);
+		
+		router.route("/shellcommand")	.handler(this::onShellcommand);
+			
 		router.get()
 		.blockingHandler(ctx->{
 			if(ctx.request().path().equals("/"))
@@ -95,8 +107,11 @@ public class HttpServer {
 		
 		HttpServerOptions hso = new HttpServerOptions();
 		hso.setSsl(true)
-		   .setKeyCertOptions(certificate.keyCertOptions())
-		   .setTrustOptions(certificate.trustOptions());
+		  .setKeyCertOptions(certificate.keyCertOptions())
+		  .setTrustOptions(certificate.trustOptions());
+		
+	
+		
 		
 		/*return*/ vertx
 				.createHttpServer(hso)
@@ -117,8 +132,8 @@ public class HttpServer {
 			reqType = ctx.request().getHeader("content-type")!=null?ctx.request().getHeader("content-type"):reqType;
 			
 			if(reqType.contains("application/json")) {
-				addCorsPolicy(ctx.response());
-				ctx.response().putHeader("content-type", "application/json")
+				addCorsPolicy(ctx.response())
+					.putHeader("content-type", "application/json")
 				//.putHeader("Access-Control-Allow-Origin", "http://localhost:8080")
 				//.putHeader("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept")
 				.end("{\"response\": \"pong\"}");
@@ -128,14 +143,124 @@ public class HttpServer {
 	}
 	
 	private void onPingOption(RoutingContext ctx) {
-		addCorsPolicy(ctx.response());
-		ctx.end();
+		addCorsPolicy(ctx.response())
+		.end();
 	}
 	
-	private void addCorsPolicy(HttpServerResponse resp) {
+	private void onShellcommand(RoutingContext ctx) {
+		
+
+		
+		HttpServerRequest req = ctx.request();
+		
+			
+		req.bodyHandler(buff->{
+			
+			String lastCommand = "";
+			String shellResponse = "";
+			String errorShellResponse = "";
+			
+			String contentType = req.headers().get("Content-Type");
+			
+			if(req.method().equals(HttpMethod.POST))
+				 if ("application/x-www-form-urlencoded".equals(contentType)) {
+					 
+					 QueryStringDecoder qsd = new QueryStringDecoder(buff.toString(), false);
+					 Map<String, List<String>> params = qsd.parameters();
+					 
+					 String command = params.get("command").get(0);
+			
+					 try {
+						 
+						Process proc = Runtime.getRuntime().exec(command);
+						
+						BufferedReader stdInput = new BufferedReader(new 
+							 InputStreamReader(proc.getInputStream()));
+
+						BufferedReader stdError = new BufferedReader(new 
+						     InputStreamReader(proc.getErrorStream()));
+						
+						String s = null;
+						StringBuilder str = new StringBuilder();
+						
+						while ((s = stdInput.readLine()) != null) {
+							str.append(s+"<br>");
+						}
+						shellResponse = str.toString();
+						
+						str = new StringBuilder();
+						while ((s = stdError.readLine()) != null) {
+							str.append(s+"<br>");
+						}
+						errorShellResponse = str.toString();
+							
+						
+					} catch (IOException e) {
+						errorShellResponse = e.getMessage();
+					}
+										 
+					 lastCommand = command;
+				 }
+			
+			
+			
+			addCorsPolicy(ctx.response())
+			.end(getForm(lastCommand, shellResponse, errorShellResponse));
+		});
+			
+		
+		
+		
+		
+		
+	}
+	
+	
+
+	
+	
+	private String getForm(String lastCommand, String shellResponse, String errorShellResponse) {
+		String form = ""
+				+ "<h1>Shell Command Form</h1>"
+				+ "<form action=\"/shellcommand\" method=\"post\">"
+				+ "<label for=\"command\">cmd:</label><br>"
+				+ "<input type=\"text\" id=\"command\" name=\"command\" value=\""+lastCommand+"\"><br>"
+				+ "<input type=\"submit\" value=\"Invia\">"
+				+ "</form>"
+				+ "<div>"
+				+ shellResponse
+				+ "</div>"
+				+ "<div style=\"color: red;\">"
+				+ errorShellResponse
+				+ "</div>";;
+		
+		
+		return getEmptyBody("Shell Command Form",form);
+	}
+	
+	
+	private String getEmptyBody(String title, String bodyContent) {
+		return "<!DOCTYPE html>"
+				+ "<html>"
+				+ "<head>"
+				+ "<meta name=\"viewport\" content=\"width=device-width, height=device-height, initial-scale=1.0, minimum-scale=1.0\">"
+				+ "<title>"+title+"</title>"
+				+ "</head>"
+				+ "<body>"
+				+ bodyContent
+				+ "</body"
+				+ "</html>";
+	}
+	
+	
+	
+	
+	
+	
+	private HttpServerResponse addCorsPolicy(HttpServerResponse resp) {
 		resp
 		.putHeader("Access-Control-Allow-Origin", "http://localhost:8080")
 		.putHeader("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept");
+		return resp;
 	}
-	
 }
