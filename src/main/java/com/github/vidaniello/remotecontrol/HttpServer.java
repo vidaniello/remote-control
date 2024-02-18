@@ -76,7 +76,7 @@ public class HttpServer {
 		router.get()
 		.blockingHandler(ctx->{
 			if(ctx.request().path().equals("/"))
-				ctx.response().putHeader("content-type", "text/plain").end("ok! "+ new Date());
+				ctx.response().putHeader("content-type", "text/html").end(getHomePage());
 			else
 				ctx.fail(404);
 		})
@@ -205,7 +205,7 @@ public class HttpServer {
 			
 			
 			addCorsPolicy(ctx.response())
-			.end(getForm(lastCommand, shellResponse, errorShellResponse));
+			.end(getShellCommandForm(lastCommand, shellResponse, errorShellResponse));
 		});
 			
 		
@@ -219,7 +219,7 @@ public class HttpServer {
 
 	
 	
-	private String getForm(String lastCommand, String shellResponse, String errorShellResponse) {
+	private String getShellCommandForm(String lastCommand, String shellResponse, String errorShellResponse) {
 		String form = ""
 				+ "<h1>Shell Command Form</h1>"
 				+ "<form action=\"/shellcommand\" method=\"post\">"
@@ -254,7 +254,15 @@ public class HttpServer {
 	
 	
 	
-	
+	private String getHomePage() {
+		String bodyContent = ""
+				+ "<h1>Home page</h1>"
+				+ "<div><a href=\"/shellcommand\">shellcommand</a></div>"
+				+ ""
+				+ ""
+				+ "";
+		return getEmptyBody("HomePage", bodyContent);
+	}
 	
 	
 	private HttpServerResponse addCorsPolicy(HttpServerResponse resp) {
