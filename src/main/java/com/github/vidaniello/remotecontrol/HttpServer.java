@@ -26,12 +26,17 @@ import io.vertx.ext.web.RoutingContext;
 
 public class HttpServer {
 	
-	public static final int port1 = 34194;
-	public static final int port2 = 34294;
-	public static final int port3 = 34394;
+	public static final int httpPort1 = 34193;
+	public static final int httpPort2 = 34293;
+	public static final int httpPort3 = 34393;
+	public static final int httpsPort1 = 34194;
+	public static final int httpsPort2 = 34294;
+	public static final int httpsPort3 = 34394;
 
-	private int selectedPort;
-	private Vertx vertx;
+	private int selectedHttpPort;
+	private int selectedHttpsPort;
+	private Vertx httpVertx;
+	private Vertx httpsVertx;
 	
 	public HttpServer() {
 		
@@ -39,41 +44,76 @@ public class HttpServer {
 	
 	public void start() throws Exception {
 		
-		selectedPort = port1;
+		selectedHttpPort = httpPort1;
 		
-		InetSocketAddress isa = new InetSocketAddress(selectedPort);
+		InetSocketAddress httpIsa = new InetSocketAddress(selectedHttpPort);
 		
-		//check porta in uso
-		try(Socket sk1 = new Socket(isa.getAddress(),selectedPort);){
+		//check porta http in uso
+		try(Socket sk1 = new Socket(httpIsa.getAddress(),selectedHttpPort);){
 			
-			selectedPort = port2;
-			isa = new InetSocketAddress(selectedPort);
+			selectedHttpPort = httpPort2;
+			httpIsa = new InetSocketAddress(selectedHttpPort);
 			
-			try(Socket sk2 = new Socket(isa.getAddress(),selectedPort);){
+			try(Socket sk2 = new Socket(httpIsa.getAddress(),selectedHttpPort);){
 				
-				selectedPort = port3;
-				isa = new InetSocketAddress(selectedPort);
+				selectedHttpPort = httpPort3;
+				httpIsa = new InetSocketAddress(selectedHttpPort);
 				
-				try(Socket sk3 = new Socket(isa.getAddress(),selectedPort);){
-					throw new Exception("All port: "+port1+" "+port2+" "+port3+" already in use!");
+				try(Socket sk3 = new Socket(httpIsa.getAddress(),selectedHttpPort);){
+					throw new Exception("All port: "+httpPort1+" "+httpPort2+" "+httpPort3+" already in use!");
 				}catch(IOException e){}
 			}catch(IOException e){}
 		}catch(IOException e){}
 		
-		System.out.println("Selected port: "+selectedPort);
 		
-		SocketAddress sa = SocketAddress.inetSocketAddress(new InetSocketAddress(selectedPort));
+		System.out.println("Selected http port: "+selectedHttpPort);
 		
-		vertx = Vertx.vertx();
-		Router router = Router.router(vertx);
 		
-		router.get("/stop")				.blockingHandler(this::onStop);
-		router.get("/ping")				.blockingHandler(this::onPing);
-		router.options("/ping")			.blockingHandler(this::onPingOption);
+		selectedHttpsPort = httpsPort1;
 		
-		router.route("/shellcommand")	.handler(this::onShellcommand);
+		InetSocketAddress isa = new InetSocketAddress(selectedHttpsPort);
+		
+		//check porta in uso
+		try(Socket sk1 = new Socket(isa.getAddress(),selectedHttpsPort);){
 			
-		router.get()
+			selectedHttpsPort = httpsPort2;
+			isa = new InetSocketAddress(selectedHttpsPort);
+			
+			try(Socket sk2 = new Socket(isa.getAddress(),selectedHttpsPort);){
+				
+				selectedHttpsPort = httpsPort3;
+				isa = new InetSocketAddress(selectedHttpsPort);
+				
+				try(Socket sk3 = new Socket(isa.getAddress(),selectedHttpsPort);){
+					throw new Exception("All port: "+httpsPort1+" "+httpsPort2+" "+httpsPort3+" already in use!");
+				}catch(IOException e){}
+			}catch(IOException e){}
+		}catch(IOException e){}
+		
+		System.out.println("Selected https port: "+selectedHttpsPort);
+		
+		
+		
+		
+		SocketAddress httpSa = SocketAddress.inetSocketAddress(new InetSocketAddress(selectedHttpPort));
+		SocketAddress httpsSa = SocketAddress.inetSocketAddress(new InetSocketAddress(selectedHttpsPort));
+		
+		httpsVertx = Vertx.vertx();
+		Router httpsRouter = Router.router(httpsVertx);
+		
+		httpVertx = Vertx.vertx();
+		Router httpRouter = Router.router(httpVertx);
+		
+		//httpsRouter.get("/stop")				.blockingHandler(this::onStop);
+		
+		httpsRouter.get("/ping")				.blockingHandler(this::onPing);
+		httpsRouter.options("/ping")			.blockingHandler(this::onPingOption);
+		
+		httpRouter.get("/ping")					.blockingHandler(this::onPing);
+	
+		httpsRouter.route("/shellcommand")		.handler(this::onShellcommand);
+			
+		httpsRouter.get()
 		.blockingHandler(ctx->{
 			if(ctx.request().path().equals("/"))
 				ctx.response().putHeader("content-type", "text/html").end(getHomePage());
@@ -113,16 +153,22 @@ public class HttpServer {
 	
 		
 		
-		/*return*/ vertx
+		/*return*/ httpsVertx
 				.createHttpServer(hso)
-				.requestHandler(router)
-				.listen(sa);
+				.requestHandler(httpsRouter)
+				.listen(httpsSa);
+		
+		httpVertx
+		.createHttpServer()
+		.requestHandler(httpRouter)
+		.listen(httpSa);
 	}
 	
 	public void onStop(RoutingContext ctx) {
 		if(ctx!=null) 
 			ctx.response().putHeader("content-type", "text/plain").end("Stopping app...\n");
-		vertx.close();
+		httpsVertx.close();
+		httpVertx.close();
 	}
 	
 	private void onPing(RoutingContext ctx) {
@@ -267,7 +313,8 @@ public class HttpServer {
 	
 	private HttpServerResponse addCorsPolicy(HttpServerResponse resp) {
 		resp
-		.putHeader("Access-Control-Allow-Origin", "http://localhost:8080")
+		//.putHeader("Access-Control-Allow-Origin", "http://localhost:8080")
+		.putHeader("Access-Control-Allow-Origin", "https://remotecontrolclient.netlify.app")
 		.putHeader("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept");
 		return resp;
 	}
