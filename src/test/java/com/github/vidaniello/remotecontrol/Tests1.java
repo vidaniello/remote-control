@@ -1,6 +1,9 @@
 package com.github.vidaniello.remotecontrol;
 
+import java.io.File;
 import java.io.FileOutputStream;
+import java.io.FileWriter;
+import java.io.Writer;
 import java.math.BigInteger;
 import java.security.KeyPair;
 import java.security.KeyPairGenerator;
@@ -33,6 +36,8 @@ import org.bouncycastle.cert.jcajce.JcaX509CertificateConverter;
 import org.bouncycastle.cert.jcajce.JcaX509ExtensionUtils;
 import org.bouncycastle.cert.jcajce.JcaX509v3CertificateBuilder;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
+import org.bouncycastle.openssl.PEMWriter;
+import org.bouncycastle.openssl.jcajce.JcaPEMWriter;
 import org.bouncycastle.operator.ContentSigner;
 import org.bouncycastle.operator.jcajce.JcaContentSignerBuilder;
 import org.bouncycastle.pkcs.PKCS10CertificationRequest;
@@ -62,9 +67,20 @@ public class Tests1 {
 	
 	private Logger log = LogManager.getLogger();
 	
-	private String multicastAddress = "230.1.5.5";
-	private int receiverPort = 34345;
+	//private String multicastAddress = "230.1.5.5";
+	//private int receiverPort = 34345;
 	
+	@Test
+	public void testUtilSSL() {
+		try {
+			
+			
+			
+			
+		}catch (Exception e) {
+			log.error(e.getMessage(),e);
+		}
+	}
 	@Test
 	public void testssl() {
 		try {
@@ -119,8 +135,8 @@ public class Tests1 {
 	        X509CertificateHolder rootCertHolder = rootCertBuilder.build(rootCertContentSigner);
 	        X509Certificate rootCert = new JcaX509CertificateConverter().setProvider(BC_PROVIDER).getCertificate(rootCertHolder);
 	        
-	        writeCertToFileBase64Encoded(rootCert, "root-cert.cer");
-	        exportKeyPairToKeystoreFile(BC_PROVIDER, rootKeyPair, rootCert, "root-cert", "root-cert.pfx", "PKCS12", "pass");
+	        writeToFilePEMFormat(rootCert, "root-cert.cer");
+	        //exportKeyPairToKeystoreFile(BC_PROVIDER, rootKeyPair, rootCert, "root-cert", "root-cert.pfx", "PKCS12", "pass");
 	        
 	        // Generate a new KeyPair and sign it using the Root Cert Private Key
 	        // by generating a CSR (Certificate Signing Request)
@@ -166,29 +182,39 @@ public class Tests1 {
 	        // Verify the issued cert signature against the root (issuer) cert
 	        issuedCert.verify(rootCert.getPublicKey(), BC_PROVIDER);
 	        
-	        writeCertToFileBase64Encoded(issuedCert, "issued-cert.cer");
-	        exportKeyPairToKeystoreFile(BC_PROVIDER, issuedCertKeyPair, issuedCert, "issued-cert", "issued-cert.pfx", "PKCS12", "pass");
+	        writeToFilePEMFormat(issuedCert, "issued-cert.cer");
+	        //exportKeyPairToKeystoreFile(BC_PROVIDER, issuedCertKeyPair, issuedCert, "issued-cert", "issued-cert.pfx", "PKCS12", "pass");
 	        
 		} catch (Exception e) {
 			log.error(e.getMessage(),e);
 		}
 	}
 	
-    void writeCertToFileBase64Encoded(Certificate certificate, String fileName) throws Exception {
-        FileOutputStream certificateOut = new FileOutputStream(fileName);
+    void writeToFilePEMFormat(Object object, String fileName) throws Exception {
+    	
+        FileWriter certificateOut = new FileWriter(fileName);
+        
+        
+        try(JcaPEMWriter pw = new JcaPEMWriter(certificateOut);){
+        	pw.writeObject(object);
+        }
+        /*
         certificateOut.write("-----BEGIN CERTIFICATE-----".getBytes());
         certificateOut.write(Base64.encode(certificate.getEncoded()));
         certificateOut.write("-----END CERTIFICATE-----".getBytes());
         certificateOut.close();
+        */
     }
     
-    static void exportKeyPairToKeystoreFile(String providerName, KeyPair keyPair, Certificate certificate, String alias, String fileName, String storeType, String storePass) throws Exception {
+    /*
+    void exportKeyPairToKeystoreFile(String providerName, KeyPair keyPair, Certificate certificate, String alias, String fileName, String storeType, String storePass) throws Exception {
         KeyStore sslKeyStore = KeyStore.getInstance(storeType, providerName);
         sslKeyStore.load(null, null);
         sslKeyStore.setKeyEntry(alias, keyPair.getPrivate(),null, new Certificate[]{certificate});
         FileOutputStream keyStoreOs = new FileOutputStream(fileName);
         sslKeyStore.store(keyStoreOs, storePass.toCharArray());
     }
+    */
 	
 	/*
 	@Test @Disabled
