@@ -1,6 +1,9 @@
 package com.github.vidaniello.remotecontrol;
 
 import java.io.File;
+import java.security.Security;
+
+import org.bouncycastle.jce.provider.BouncyCastleProvider;
 
 public class Constants {
 	
@@ -14,4 +17,7 @@ public class Constants {
 	
 	public static String defaultSignatureAlgorithm = "SHA256withRSA";
 
+	static {
+		Security.addProvider(new BouncyCastleProvider());
+	}
 }

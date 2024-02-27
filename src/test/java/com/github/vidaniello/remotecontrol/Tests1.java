@@ -74,18 +74,9 @@ public class Tests1 {
 	public void testssl() {
 		try {
 			
-			//https://gist.github.com/vivekkr12/c74f7ee08593a8c606ed96f4b62a208a
 			
-			String BC_PROVIDER = "BC";
-			String keyAlg = "RSA";
-			String SIGNATURE_ALGORITHM = "SHA256withRSA";
-			
-			Security.addProvider(new BouncyCastleProvider());
-			
-			KeyPairGenerator kpg = KeyPairGenerator.getInstance(keyAlg, BC_PROVIDER);
-			kpg.initialize(2048);
-		    
-		    
+						
+					    
 	        Calendar calendar = Calendar.getInstance();
 	        calendar.add(Calendar.DATE, -1);
 	        Date startDate = calendar.getTime();
@@ -98,31 +89,15 @@ public class Tests1 {
 	        // First Generate a KeyPair,
 	        // then a random serial number
 	        // then generate a certificate using the KeyPair
-	        KeyPair rootKeyPair = kpg.generateKeyPair();
-		    PublicKey rootPubKey = rootKeyPair.getPublic();
-		    PrivateKey rootPrivKey = rootKeyPair.getPrivate();
-		    BigInteger rootSerialNum = new BigInteger(Long.toString(new SecureRandom().nextLong()));
-		    
-		    
+	        KeyPair rootKeyPair = UtilSSL.INSTANCE.getKeyPairGenerator().generateKeyPair();
+		   		    
 		    X500NameBuilder nBuli = new X500NameBuilder(BCStyle.INSTANCE);
 		    nBuli.addRDN(BCStyle.CN, "root-cert");
 		    nBuli.addRDN(BCStyle.OU, "OrganizationalUnit");
 		    nBuli.addRDN(BCStyle.O, "Organization");
 		    nBuli.addRDN(BCStyle.EmailAddress, "email@email.com");
-		    X500Name rootCertIssuer = nBuli.build();
-		    X500Name rootCertSubject = rootCertIssuer;
-		    
-		    ContentSigner rootCertContentSigner = new JcaContentSignerBuilder(SIGNATURE_ALGORITHM).setProvider(BC_PROVIDER).build(rootPrivKey);
-		    X509v3CertificateBuilder rootCertBuilder = new JcaX509v3CertificateBuilder(rootCertIssuer, rootSerialNum, startDate, endDate, rootCertSubject, rootPubKey);
-		    
-	        // Add Extensions
-	        // A BasicConstraint to mark root certificate as CA certificate
-	        JcaX509ExtensionUtils rootCertExtUtils = new JcaX509ExtensionUtils();
-	        rootCertBuilder.addExtension(Extension.basicConstraints, true, new BasicConstraints(true));
-	        rootCertBuilder.addExtension(Extension.subjectKeyIdentifier, false, rootCertExtUtils.createSubjectKeyIdentifier(rootPubKey));
-		    
-	        X509CertificateHolder rootCertHolder = rootCertBuilder.build(rootCertContentSigner);
-	        X509Certificate rootCert = new JcaX509CertificateConverter().setProvider(BC_PROVIDER).getCertificate(rootCertHolder);
+		    X509Certificate rootCert = UtilSSL.INSTANCE.getNewRootCertificate(
+		    		startDate, endDate, rootKeyPair, nBuli);
 	        
 	        writeToFilePEMFormat(rootCert, "root-cert.cer");
 	        //exportKeyPairToKeystoreFile(BC_PROVIDER, rootKeyPair, rootCert, "root-cert", "root-cert.pfx", "PKCS12", "pass");
@@ -131,20 +106,23 @@ public class Tests1 {
 	        // by generating a CSR (Certificate Signing Request)
 	        X500Name issuedCertSubject = new X500Name("CN=issued-cert");
 	        BigInteger issuedCertSerialNum = new BigInteger(Long.toString(new SecureRandom().nextLong()));
-	        KeyPair issuedCertKeyPair = kpg.generateKeyPair();
+	        KeyPair issuedCertKeyPair = UtilSSL.INSTANCE.getKeyPairGenerator().generateKeyPair();
 	        
 	        PKCS10CertificationRequestBuilder p10Builder = new JcaPKCS10CertificationRequestBuilder(issuedCertSubject, issuedCertKeyPair.getPublic());
-	        JcaContentSignerBuilder csrBuilder = new JcaContentSignerBuilder(SIGNATURE_ALGORITHM).setProvider(BC_PROVIDER);
+	        JcaContentSignerBuilder csrBuilder = new JcaContentSignerBuilder(Constants.defaultSignatureAlgorithm).setProvider(Constants.defaultSecurityProvider);
 	        
 	        // Sign the new KeyPair with the root cert Private Key
-	        ContentSigner csrContentSigner = csrBuilder.build(rootPrivKey);
+	        ContentSigner csrContentSigner = csrBuilder.build(rootKeyPair.getPrivate());
 	        PKCS10CertificationRequest csr = p10Builder.build(csrContentSigner);
 	        
 	        
 	        // Use the Signed KeyPair and CSR to generate an issued Certificate
 	        // Here serial number is randomly generated. In general, CAs use
 	        // a sequence to generate Serial number and avoid collisions
-	        X509v3CertificateBuilder issuedCertBuilder = new X509v3CertificateBuilder(rootCertIssuer, issuedCertSerialNum, startDate, endDate, csr.getSubject(), csr.getSubjectPublicKeyInfo());
+	        X509v3CertificateBuilder issuedCertBuilder = 
+	        		new X509v3CertificateBuilder(
+	        				rootCertIssuer, issuedCertSerialNum, startDate, endDate, 
+	        				csr.getSubject(), csr.getSubjectPublicKeyInfo());
 
 	        JcaX509ExtensionUtils issuedCertExtUtils = new JcaX509ExtensionUtils();
 	        
@@ -166,10 +144,10 @@ public class Tests1 {
 	        }));
 	        
 	        X509CertificateHolder issuedCertHolder = issuedCertBuilder.build(csrContentSigner);
-	        X509Certificate issuedCert  = new JcaX509CertificateConverter().setProvider(BC_PROVIDER).getCertificate(issuedCertHolder);
+	        X509Certificate issuedCert  = new JcaX509CertificateConverter().setProvider(Constants.defaultSecurityProvider).getCertificate(issuedCertHolder);
 	        
 	        // Verify the issued cert signature against the root (issuer) cert
-	        issuedCert.verify(rootCert.getPublicKey(), BC_PROVIDER);
+	        issuedCert.verify(rootCert.getPublicKey(), Constants.defaultSecurityProvider);
 	        
 	        writeToFilePEMFormat(issuedCert, "issued-cert.cer");
 	        //exportKeyPairToKeystoreFile(BC_PROVIDER, issuedCertKeyPair, issuedCert, "issued-cert", "issued-cert.pfx", "PKCS12", "pass");
