@@ -1,7 +1,12 @@
 package com.github.vidaniello.remotecontrol;
 
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
+import java.io.File;
 import java.io.FileWriter;
+import java.io.InputStreamReader;
 import java.math.BigInteger;
+import java.security.KeyFactory;
 import java.security.KeyPair;
 import java.security.KeyPairGenerator;
 import java.security.PrivateKey;
@@ -9,12 +14,18 @@ import java.security.PublicKey;
 import java.security.SecureRandom;
 import java.security.Security;
 import java.security.cert.X509Certificate;
+import java.security.interfaces.RSAPrivateCrtKey;
+import java.security.spec.PKCS8EncodedKeySpec;
+import java.security.spec.RSAPublicKeySpec;
 import java.util.Calendar;
 import java.util.Date;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.core.util.Assert;
 import org.bouncycastle.asn1.ASN1Encodable;
 import org.bouncycastle.asn1.DERSequence;
+import org.bouncycastle.asn1.pkcs.PrivateKeyInfo;
+import org.bouncycastle.asn1.x500.RDN;
 import org.bouncycastle.asn1.x500.X500Name;
 import org.bouncycastle.asn1.x500.X500NameBuilder;
 import org.bouncycastle.asn1.x500.style.BCStyle;
@@ -25,15 +36,24 @@ import org.bouncycastle.asn1.x509.KeyUsage;
 import org.bouncycastle.cert.X509CertificateHolder;
 import org.bouncycastle.cert.X509v3CertificateBuilder;
 import org.bouncycastle.cert.jcajce.JcaX509CertificateConverter;
+import org.bouncycastle.cert.jcajce.JcaX509CertificateHolder;
 import org.bouncycastle.cert.jcajce.JcaX509ExtensionUtils;
 import org.bouncycastle.cert.jcajce.JcaX509v3CertificateBuilder;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
+import org.bouncycastle.openssl.jcajce.JcaPEMKeyConverter;
 import org.bouncycastle.openssl.jcajce.JcaPEMWriter;
 import org.bouncycastle.operator.ContentSigner;
+import org.bouncycastle.operator.InputDecryptorProvider;
 import org.bouncycastle.operator.jcajce.JcaContentSignerBuilder;
 import org.bouncycastle.pkcs.PKCS10CertificationRequest;
 import org.bouncycastle.pkcs.PKCS10CertificationRequestBuilder;
+import org.bouncycastle.pkcs.PKCS8EncryptedPrivateKeyInfo;
 import org.bouncycastle.pkcs.jcajce.JcaPKCS10CertificationRequestBuilder;
+import org.bouncycastle.pkcs.jcajce.JcePKCSPBEInputDecryptorProviderBuilder;
+import org.bouncycastle.util.io.pem.PemObject;
+import org.bouncycastle.util.io.pem.PemReader;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
 public class Tests1 {
@@ -56,20 +76,82 @@ public class Tests1 {
 	
 	private Logger log = LogManager.getLogger();
 	
+	
+	@BeforeAll
+	public static void onStartTest() {
+		UtilSSL.INSTANCE.setBasePath( UtilSSL.INSTANCE.getBasePath()+File.separatorChar+"testdir" );
+	}
 	//private String multicastAddress = "230.1.5.5";
 	//private int receiverPort = 34345;
 	
 	@Test
-	public void testUtilSSL() {
+	public void testSslUtil() {
 		try {
 			
+			byte[] certByte = FileUtil.readFromFile("root-cert.cer");
 			
+			X509Certificate certificate = UtilSSL.INSTANCE.getCertificateFromPEMFormat(certByte);
 			
+			X500Name x500name = UtilSSL.INSTANCE.getX500NameFromCertificate(certificate);
+			
+			RDN d = x500name.getRDNs(BCStyle.CN)[0];
+			String cn = d.getFirst().getValue().toString();
+			
+			int i = 0;
 			
 		}catch (Exception e) {
 			log.error(e.getMessage(),e);
 		}
 	}
+	
+	@Test
+	public void testCreateStoreAndReadKey2() {
+		try {
+			
+			PrivateKey pkey = UtilSSL.INSTANCE.getOrNewCommonNamePrivateKey("TestRootCA");
+			
+			PrivateKey pkey2 = UtilSSL.INSTANCE.getOrNewCommonNamePrivateKey("TestRootCA");
+			
+			Assertions.assertTrue(pkey.equals(pkey2));
+			
+		}catch (Exception e) {
+			log.error(e.getMessage(),e);
+		}
+	}
+	
+	@Test
+	public void testCreateStoreAndReadKey() {
+		try {
+			
+			KeyPair rootKeyPair = UtilSSL.INSTANCE.getKeyPairGenerator().generateKeyPair();
+			PrivateKey pKey = rootKeyPair.getPrivate();
+			PublicKey pubKey = rootKeyPair.getPublic();
+			
+			ByteArrayOutputStream baos = new ByteArrayOutputStream();
+			UtilSSL.INSTANCE.writePrivateKeyToPEMFormat(pKey, "testpwd", baos);
+			
+			FileUtil.writeToFile(baos.toByteArray(), "test_rootPrivateKey.key");
+			
+			//Reading
+			byte[] encryptedPemKey = FileUtil.readFromFile("test_rootPrivateKey.key");
+				
+			//Private key
+			PrivateKey restoredPk = UtilSSL.INSTANCE.getPrivateKeyFromPEMFormat(encryptedPemKey, "testpwd");
+			
+			Assertions.assertTrue( pKey.equals(restoredPk) );
+			
+			//Public key
+			
+			PublicKey pubKeyRestored = UtilSSL.INSTANCE.getPublicKey((RSAPrivateCrtKey) restoredPk);
+			
+			Assertions.assertTrue( pubKey.equals(pubKeyRestored) );
+			
+		}catch (Exception e) {
+			log.error(e.getMessage(),e);
+		}
+	}
+	
+	
 	@Test
 	public void testssl() {
 		try {
@@ -90,7 +172,8 @@ public class Tests1 {
 	        // then a random serial number
 	        // then generate a certificate using the KeyPair
 	        KeyPair rootKeyPair = UtilSSL.INSTANCE.getKeyPairGenerator().generateKeyPair();
-		   		    
+		   	
+	        
 		    X500NameBuilder nBuli = new X500NameBuilder(BCStyle.INSTANCE);
 		    nBuli.addRDN(BCStyle.CN, "root-cert");
 		    nBuli.addRDN(BCStyle.OU, "OrganizationalUnit");
@@ -99,9 +182,14 @@ public class Tests1 {
 		    X509Certificate rootCert = UtilSSL.INSTANCE.getNewRootCertificate(
 		    		startDate, endDate, rootKeyPair, nBuli);
 	        
-	        writeToFilePEMFormat(rootCert, "root-cert.cer");
+		    ByteArrayOutputStream baos = new ByteArrayOutputStream();
+		    UtilSSL.INSTANCE.writeToPEMFormat(rootCert, baos);
 	        //exportKeyPairToKeystoreFile(BC_PROVIDER, rootKeyPair, rootCert, "root-cert", "root-cert.pfx", "PKCS12", "pass");
+		    FileUtil.writeToFile(baos.toByteArray(), "root-cert.cer");
 	        
+	        
+	        
+	        /*
 	        // Generate a new KeyPair and sign it using the Root Cert Private Key
 	        // by generating a CSR (Certificate Signing Request)
 	        X500Name issuedCertSubject = new X500Name("CN=issued-cert");
@@ -149,29 +237,26 @@ public class Tests1 {
 	        // Verify the issued cert signature against the root (issuer) cert
 	        issuedCert.verify(rootCert.getPublicKey(), Constants.defaultSecurityProvider);
 	        
-	        writeToFilePEMFormat(issuedCert, "issued-cert.cer");
-	        //exportKeyPairToKeystoreFile(BC_PROVIDER, issuedCertKeyPair, issuedCert, "issued-cert", "issued-cert.pfx", "PKCS12", "pass");
 	        
+	        UtilSSL.INSTANCE.writeToPEMFormat(issuedCert, "issued-cert.cer");
+	        //exportKeyPairToKeystoreFile(BC_PROVIDER, issuedCertKeyPair, issuedCert, "issued-cert", "issued-cert.pfx", "PKCS12", "pass");
+	        */
 		} catch (Exception e) {
 			log.error(e.getMessage(),e);
 		}
 	}
 	
+	/*
     void writeToFilePEMFormat(Object object, String fileName) throws Exception {
     	
-        FileWriter certificateOut = new FileWriter(fileName);
         
-        
-        try(JcaPEMWriter pw = new JcaPEMWriter(certificateOut);){
-        	pw.writeObject(object);
-        }
-        /*
         certificateOut.write("-----BEGIN CERTIFICATE-----".getBytes());
         certificateOut.write(Base64.encode(certificate.getEncoded()));
         certificateOut.write("-----END CERTIFICATE-----".getBytes());
         certificateOut.close();
-        */
+        
     }
+	 */
     
     /*
     void exportKeyPairToKeystoreFile(String providerName, KeyPair keyPair, Certificate certificate, String alias, String fileName, String storeType, String storePass) throws Exception {
