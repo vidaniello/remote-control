@@ -3,3 +3,5 @@
 /.project
 /.settings/
 /bin/
+/root-cert.cer
+/test_rootPrivateKey.key
