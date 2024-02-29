@@ -9,9 +9,7 @@ import java.io.InputStream;
 public class FileUtil {
 	
 	
-	
-	public static void writeToFile(byte [] content, String filename) throws IOException {
-		File file = new File(filename);
+	public static void writeToFile(byte [] content, File file) throws IOException {
 		if(!file.exists())
 			file.createNewFile();
 		
@@ -19,12 +17,22 @@ public class FileUtil {
 		fos.write(content);
 		fos.close();
 	}
+	
+	public static void writeToFile(byte [] content, String filename) throws IOException {
+		writeToFile(content, new File(filename));
+	}
 
-	public static byte[] readFromFile(String filename) throws IOException {
-		FileInputStream fis = new FileInputStream(filename);
+	
+	
+	public static byte[] readFromFile(File file) throws IOException {
+		FileInputStream fis = new FileInputStream(file);
 		
 		byte[] ret = fis.readAllBytes();
 		fis.close();
 		return ret;
+	}
+	
+	public static byte[] readFromFile(String filename) throws IOException {
+		return readFromFile(new File(filename));
 	}
 }

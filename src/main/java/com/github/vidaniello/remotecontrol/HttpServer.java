@@ -6,9 +6,21 @@ import java.io.InputStreamReader;
 import java.net.InetSocketAddress;
 import java.net.Socket;
 import java.net.SocketException;
+import java.security.KeyStore;
+import java.security.PrivateKey;
+import java.security.cert.Certificate;
+import java.security.cert.X509Certificate;
+import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 import java.util.Map;
+
+import javax.net.ssl.KeyManagerFactory;
+
+import org.bouncycastle.asn1.x500.X500Name;
+import org.bouncycastle.asn1.x500.X500NameBuilder;
+import org.bouncycastle.asn1.x500.style.BCStyle;
+import org.bouncycastle.asn1.x509.GeneralName;
 
 import io.netty.handler.codec.http.QueryStringDecoder;
 import io.vertx.core.Handler;
@@ -18,6 +30,9 @@ import io.vertx.core.http.HttpMethod;
 import io.vertx.core.http.HttpServerOptions;
 import io.vertx.core.http.HttpServerRequest;
 import io.vertx.core.http.HttpServerResponse;
+import io.vertx.core.net.JksOptions;
+import io.vertx.core.net.KeyCertOptions;
+import io.vertx.core.net.PemKeyCertOptions;
 import io.vertx.core.net.PemKeyCertOptionsConverter;
 import io.vertx.core.net.SelfSignedCertificate;
 import io.vertx.core.net.SocketAddress;
@@ -26,16 +41,18 @@ import io.vertx.ext.web.RoutingContext;
 
 public class HttpServer {
 	
+	/*
 	public static final int httpPort1 = 34193;
 	public static final int httpPort2 = 34293;
 	public static final int httpPort3 = 34393;
+	*/
 	public static final int httpsPort1 = 34194;
 	public static final int httpsPort2 = 34294;
 	public static final int httpsPort3 = 34394;
 
-	private int selectedHttpPort;
+	//private int selectedHttpPort;
 	private int selectedHttpsPort;
-	private Vertx httpVertx;
+	//private Vertx httpVertx;
 	private Vertx httpsVertx;
 	
 	public HttpServer() {
@@ -44,6 +61,7 @@ public class HttpServer {
 	
 	public void start() throws Exception {
 		
+		/*
 		selectedHttpPort = httpPort1;
 		
 		InetSocketAddress httpIsa = new InetSocketAddress(selectedHttpPort);
@@ -67,7 +85,7 @@ public class HttpServer {
 		
 		
 		System.out.println("Selected http port: "+selectedHttpPort);
-		
+		*/
 		
 		selectedHttpsPort = httpsPort1;
 		
@@ -95,21 +113,21 @@ public class HttpServer {
 		
 		
 		
-		SocketAddress httpSa = SocketAddress.inetSocketAddress(new InetSocketAddress(selectedHttpPort));
+		//SocketAddress httpSa = SocketAddress.inetSocketAddress(new InetSocketAddress(selectedHttpPort));
 		SocketAddress httpsSa = SocketAddress.inetSocketAddress(new InetSocketAddress(selectedHttpsPort));
 		
 		httpsVertx = Vertx.vertx();
 		Router httpsRouter = Router.router(httpsVertx);
 		
-		httpVertx = Vertx.vertx();
-		Router httpRouter = Router.router(httpVertx);
+		//httpVertx = Vertx.vertx();
+		//Router httpRouter = Router.router(httpVertx);
 		
 		//httpsRouter.get("/stop")				.blockingHandler(this::onStop);
 		
 		httpsRouter.get("/ping")				.blockingHandler(this::onPing);
 		httpsRouter.options("/ping")			.blockingHandler(this::onPingOption);
 		
-		httpRouter.get("/ping")					.blockingHandler(this::onPing);
+		//httpRouter.get("/ping")					.blockingHandler(this::onPing);
 	
 		httpsRouter.route("/shellcommand")		.handler(this::onShellcommand);
 			
@@ -143,13 +161,32 @@ public class HttpServer {
 		});
 		*/
 		
-		SelfSignedCertificate certificate = SelfSignedCertificate.create();
 		
-		HttpServerOptions hso = new HttpServerOptions();
-		hso.setSsl(true)
-		  .setKeyCertOptions(certificate.keyCertOptions())
-		  .setTrustOptions(certificate.trustOptions());
 		
+		//SelfSignedCertificate certificate = SelfSignedCertificate.create();
+		
+		PrivateKey privateKey = UtilSSL.INSTANCE.getOrNewCommonNamePrivateKey(getThisIssuerName());
+		X509Certificate certificate = UtilSSL.INSTANCE.getOrNewOrRenewCertificate(RootCAGeneration.getRootName(), getThisIssuerName(), getThisSubjectAlternativeName(), true);
+		
+		KeyStore keystore = KeyStore.getInstance("JKS");
+		keystore.load(null);
+		keystore.setCertificateEntry("cert-alias", certificate);
+		keystore.setKeyEntry("key-alias", privateKey, "changeit".toCharArray(), new Certificate[] {certificate});
+			
+	    KeyManagerFactory kmf = KeyManagerFactory.getInstance("SunX509");
+	    kmf.init(keystore, "changeit".toCharArray());
+		
+		JksOptions jksOptions = new JksOptions();
+		jksOptions.
+		
+		
+		HttpServerOptions hso = new HttpServerOptions()
+		.setSsl(true)
+		.setKeyCertOptions(jksOptions);
+		
+		  //.setKeyCertOptions(certificate.keyCertOptions())
+		  //.setTrustOptions(certificate.trustOptions());
+			;
 	
 		
 		
@@ -158,17 +195,35 @@ public class HttpServer {
 				.requestHandler(httpsRouter)
 				.listen(httpsSa);
 		
+		/*
 		httpVertx
 		.createHttpServer()
 		.requestHandler(httpRouter)
 		.listen(httpSa);
+		*/
+	}
+	
+	private X500Name getThisIssuerName() {
+		X500NameBuilder rootX500nameBuilder = new X500NameBuilder(BCStyle.INSTANCE);
+	    rootX500nameBuilder.addRDN(BCStyle.CN, "Computer A");
+	    rootX500nameBuilder.addRDN(BCStyle.OU, "Computer A for test purposes");
+	   
+	    return rootX500nameBuilder.build();
+	}
+
+	private List<GeneralName> getThisSubjectAlternativeName(){
+	    List<GeneralName> subjectAlternativeName = new ArrayList<>();
+	    //subjectAlternativeName.add(new GeneralName(GeneralName.dNSName, "issuerDomainName.local"));
+	    subjectAlternativeName.add(new GeneralName(GeneralName.dNSName, "localhost"));
+	   
+	    return subjectAlternativeName;
 	}
 	
 	public void onStop(RoutingContext ctx) {
 		if(ctx!=null) 
 			ctx.response().putHeader("content-type", "text/plain").end("Stopping app...\n");
 		httpsVertx.close();
-		httpVertx.close();
+		//httpVertx.close();
 	}
 	
 	private void onPing(RoutingContext ctx) {
