@@ -13,6 +13,7 @@ import java.security.PrivateKey;
 import java.security.PublicKey;
 import java.security.SecureRandom;
 import java.security.Security;
+import java.security.cert.Certificate;
 import java.security.cert.X509Certificate;
 import java.security.interfaces.RSAPrivateCrtKey;
 import java.security.spec.PKCS8EncodedKeySpec;
@@ -88,15 +89,16 @@ public class Tests1 {
 	public void testSslUtil() {
 		try {
 			
-			byte[] certByte = FileUtil.readFromFile("root-cert.cer");
+		    X500NameBuilder nBuli = new X500NameBuilder(BCStyle.INSTANCE);
+		    nBuli.addRDN(BCStyle.CN, "root-cert-test");
+		    nBuli.addRDN(BCStyle.OU, "OrganizationalUnit");
+		    nBuli.addRDN(BCStyle.O, "Organization");
+		    nBuli.addRDN(BCStyle.EmailAddress, "email@email.com");
+		    
+		    X509Certificate rootCert = UtilSSL.INSTANCE.getOrNewOrRenewRootCertificate(nBuli.build());
 			
-			X509Certificate certificate = UtilSSL.INSTANCE.getCertificateFromPEMFormat(certByte);
-			
-			X500Name x500name = UtilSSL.INSTANCE.getX500NameFromCertificate(certificate);
-			
-			RDN d = x500name.getRDNs(BCStyle.CN)[0];
-			String cn = d.getFirst().getValue().toString();
-			
+		    
+		    
 			int i = 0;
 			
 		}catch (Exception e) {
@@ -179,8 +181,9 @@ public class Tests1 {
 		    nBuli.addRDN(BCStyle.OU, "OrganizationalUnit");
 		    nBuli.addRDN(BCStyle.O, "Organization");
 		    nBuli.addRDN(BCStyle.EmailAddress, "email@email.com");
+		    
 		    X509Certificate rootCert = UtilSSL.INSTANCE.getNewRootCertificate(
-		    		startDate, endDate, rootKeyPair, nBuli);
+		    		startDate, endDate, rootKeyPair.getPrivate(), rootKeyPair.getPublic(), nBuli.build());
 	        
 		    ByteArrayOutputStream baos = new ByteArrayOutputStream();
 		    UtilSSL.INSTANCE.writeToPEMFormat(rootCert, baos);

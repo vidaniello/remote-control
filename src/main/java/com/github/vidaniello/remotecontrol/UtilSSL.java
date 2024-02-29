@@ -22,10 +22,12 @@ import java.security.PublicKey;
 import java.security.SecureRandom;
 import java.security.cert.CertificateEncodingException;
 import java.security.cert.CertificateException;
+import java.security.cert.CertificateExpiredException;
 import java.security.cert.X509Certificate;
 import java.security.interfaces.RSAPrivateCrtKey;
 import java.security.spec.InvalidKeySpecException;
 import java.security.spec.RSAPublicKeySpec;
+import java.util.Calendar;
 import java.util.Date;
 
 import org.apache.logging.log4j.LogManager;
@@ -111,27 +113,27 @@ public class UtilSSL {
 		return keyPairGenerator;
 	}
 
-	public X509Certificate getNewRootCertificate(Date startDate, Date expireDate, KeyPair rootKeyPair,
-			X500NameBuilder nameBuilder)
+	public X509Certificate getNewRootCertificate(Date startDate, Date expireDate, PrivateKey privateKey, 
+			PublicKey publicKey, X500Name x500name)
 			throws OperatorCreationException, CertIOException, NoSuchAlgorithmException, CertificateException {
 
 		BigInteger rootSerialNum = new BigInteger(Long.toString(new SecureRandom().nextLong()));
 
-		X500Name rootCertIssuer = nameBuilder.build();
+		X500Name rootCertIssuer = x500name;
 		X500Name rootCertSubject = rootCertIssuer;
 
 		ContentSigner rootCertContentSigner = new JcaContentSignerBuilder(Constants.defaultSignatureAlgorithm)
-				.setProvider(Constants.defaultSecurityProvider).build(rootKeyPair.getPrivate());
+				.setProvider(Constants.defaultSecurityProvider).build(privateKey);
 
 		X509v3CertificateBuilder rootCertBuilder = new JcaX509v3CertificateBuilder(rootCertIssuer, rootSerialNum,
-				startDate, expireDate, rootCertSubject, rootKeyPair.getPublic());
+				startDate, expireDate, rootCertSubject, publicKey);
 
 		// Add Extensions
 		// A BasicConstraint to mark root certificate as CA certificate
 		JcaX509ExtensionUtils rootCertExtUtils = new JcaX509ExtensionUtils();
 		rootCertBuilder.addExtension(Extension.basicConstraints, true, new BasicConstraints(true));
 		rootCertBuilder.addExtension(Extension.subjectKeyIdentifier, false,
-				rootCertExtUtils.createSubjectKeyIdentifier(rootKeyPair.getPublic()));
+				rootCertExtUtils.createSubjectKeyIdentifier(publicKey));
 
 		X509CertificateHolder rootCertHolder = rootCertBuilder.build(rootCertContentSigner);
 		X509Certificate rootCert = new JcaX509CertificateConverter().setProvider(Constants.defaultSecurityProvider)
@@ -155,6 +157,12 @@ public class UtilSSL {
 		return x509Converter.getCertificate((X509CertificateHolder) pemParser.readObject());
 	}
 
+	public X509Certificate getCertificateFromPEMFormat(File certFile) throws CertificateException, IOException {
+		try(FileInputStream fis = new FileInputStream(certFile);){
+			return getCertificateFromPEMFormat(fis.readAllBytes());
+		}
+	}
+	
 	public void writePrivateKeyToPEMFormat(PrivateKey privateKey, String password, OutputStream os) throws IOException, OperatorCreationException {
 
 		JceOpenSSLPKCS8EncryptorBuilder encryptorBuilder = new JceOpenSSLPKCS8EncryptorBuilder(
@@ -221,8 +229,8 @@ public class UtilSSL {
 		return Hex.toHexString(hashbytes);
 	}
 	
-	public String getCommonName(X500Name rootX500name) {
-		return rootX500name.getRDNs(BCStyle.CN)[0].getFirst().getValue().toString();
+	public String getCommonName(X500Name X500name) {
+		return X500name.getRDNs(BCStyle.CN)[0].getFirst().getValue().toString();
 	}
 	
 	private void makeCnPath(String commonName) {
@@ -263,7 +271,7 @@ public class UtilSSL {
 		
 		String passwd = getSha3_256(commonName);
 		
-		if(!exsistPkCommonNamefiles(commonName)) 
+		if(exsistPkCommonNamefiles(commonName)) 
 			return getPrivateKeyFromPEMFormat(getPkFile(commonName), passwd);
 		
 		KeyPair rootKeyPair = getKeyPairGenerator().generateKeyPair();
@@ -272,22 +280,52 @@ public class UtilSSL {
 		return pk;
 	}
 	
-	public  PrivateKey getOrNewCommonNamePrivateKey(X500Name rootX500name) throws NoSuchAlgorithmException, FileNotFoundException, IOException, PKCSException, NoSuchProviderException, OperatorCreationException {
+	public PrivateKey getOrNewCommonNamePrivateKey(X500Name rootX500name) throws NoSuchAlgorithmException, FileNotFoundException, IOException, PKCSException, NoSuchProviderException, OperatorCreationException {
 		return getOrNewCommonNamePrivateKey(getCommonName(rootX500name));
 	}
 	
 
 	
 	
-	public synchronized X509Certificate getOrNewRootCertificate(String commonName) {
+	public synchronized X509Certificate getOrNewOrRenewRootCertificate(X500Name x500name) throws IOException, CertificateException, NoSuchAlgorithmException, NoSuchProviderException, OperatorCreationException, PKCSException, InvalidKeySpecException {
 		
+		String commonName = getCommonName(x500name);
 		
+		if(!exsistCertificateCommonNamefiles(commonName)) 
+			return renewRootCertificate(x500name);
 		
-		return null;
+		X509Certificate ret = getCertificateFromPEMFormat(getCertificateFile(commonName));	
+		
+		try {
+			ret.checkValidity();
+		}catch(CertificateExpiredException e) {
+			return renewRootCertificate(x500name);
+		}
+		
+		return ret;
 	}
 	
-	public X509Certificate getOrNewRootCertificate(X500Name x500name) {
-		return getOrNewRootCertificate(getCommonName(x500name));
+	private X509Certificate renewRootCertificate(X500Name x500name) throws NoSuchAlgorithmException, FileNotFoundException, NoSuchProviderException, OperatorCreationException, IOException, PKCSException, InvalidKeySpecException, CertificateException {
+		
+		String commonName = getCommonName(x500name);
+		
+		File certFile = getCertificateFile(commonName);
+		
+		PrivateKey rootPrivKey = getOrNewCommonNamePrivateKey(x500name);
+		PublicKey rootPublicKey = getPublicKey((RSAPrivateCrtKey) rootPrivKey);
+		
+        Calendar calendar = Calendar.getInstance();
+        calendar.add(Calendar.DATE, -1);
+        Date startDate = calendar.getTime();
+
+        calendar.add(Calendar.YEAR, 1);
+        Date endDate = calendar.getTime();
+        
+        X509Certificate ret = getNewRootCertificate(startDate, endDate, rootPrivKey, rootPublicKey, x500name);
+		
+        writeToPEMFormat(ret, new FileOutputStream(certFile));
+        
+		return ret;
 	}
 	
 }
