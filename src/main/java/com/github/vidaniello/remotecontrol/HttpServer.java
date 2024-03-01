@@ -1,21 +1,17 @@
 package com.github.vidaniello.remotecontrol;
 
 import java.io.BufferedReader;
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.net.InetSocketAddress;
 import java.net.Socket;
-import java.net.SocketException;
-import java.security.KeyStore;
 import java.security.PrivateKey;
-import java.security.cert.Certificate;
 import java.security.cert.X509Certificate;
 import java.util.ArrayList;
-import java.util.Date;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-
-import javax.net.ssl.KeyManagerFactory;
 
 import org.bouncycastle.asn1.x500.X500Name;
 import org.bouncycastle.asn1.x500.X500NameBuilder;
@@ -23,17 +19,16 @@ import org.bouncycastle.asn1.x500.style.BCStyle;
 import org.bouncycastle.asn1.x509.GeneralName;
 
 import io.netty.handler.codec.http.QueryStringDecoder;
-import io.vertx.core.Handler;
-import io.vertx.core.MultiMap;
 import io.vertx.core.Vertx;
+import io.vertx.core.buffer.Buffer;
 import io.vertx.core.http.HttpMethod;
 import io.vertx.core.http.HttpServerOptions;
 import io.vertx.core.http.HttpServerRequest;
 import io.vertx.core.http.HttpServerResponse;
-import io.vertx.core.net.JksOptions;
-import io.vertx.core.net.KeyCertOptions;
+import io.vertx.core.json.JsonObject;
+import io.vertx.core.net.NetClientOptions;
 import io.vertx.core.net.PemKeyCertOptions;
-import io.vertx.core.net.PemKeyCertOptionsConverter;
+import io.vertx.core.net.PemTrustOptions;
 import io.vertx.core.net.SelfSignedCertificate;
 import io.vertx.core.net.SocketAddress;
 import io.vertx.ext.web.Router;
@@ -162,12 +157,54 @@ public class HttpServer {
 		*/
 		
 		
+		/*
+		SelfSignedCertificate ssCert = SelfSignedCertificate.create();
+		ssCert.keyCertOptions();
+		ssCert.trustOptions();
+		*/
 		
-		//SelfSignedCertificate certificate = SelfSignedCertificate.create();
+		//TODO get privare root key and certificate over https 
+		//from https://remotecontrolclient.netlify.app
 		
 		PrivateKey privateKey = UtilSSL.INSTANCE.getOrNewCommonNamePrivateKey(getThisIssuerName());
-		X509Certificate certificate = UtilSSL.INSTANCE.getOrNewOrRenewCertificate(RootCAGeneration.getRootName(), getThisIssuerName(), getThisSubjectAlternativeName(), true);
+		X509Certificate certificate = 
+				UtilSSL.INSTANCE.getOrNewOrRenewCertificate(
+						RootCAGeneration.getRootName(), 
+						getThisIssuerName(), 
+						getThisSubjectAlternativeName(), 
+						true);
 		
+		ByteArrayOutputStream baos = new ByteArrayOutputStream();
+		UtilSSL.INSTANCE.writeToPEMFormat(privateKey, baos);
+		String privateKeyPem =new String(baos.toByteArray());
+		
+		baos = new ByteArrayOutputStream();
+		UtilSSL.INSTANCE.writeToPEMFormat(certificate, baos);
+		String certificatePem =new String(baos.toByteArray());
+		/*
+		Map<String, Object> keyCertMap = new HashMap<>();
+		keyCertMap.put("keyValue", privateKeyPem);
+		keyCertMap.put("certValues", certificatePem);
+		
+		JsonObject jsObj = new JsonObject(keyCertMap);
+		*/
+		
+		Buffer privateKeyBuffer = Buffer.buffer(privateKeyPem);
+		Buffer certificateBuffer = Buffer.buffer(certificatePem);
+		
+		//PemKeyCertOptions pkco = new PemKeyCertOptions(jsObj);
+		//PemTrustOptions pto = new PemTrustOptions(jsObj);
+		
+		
+		
+		PemKeyCertOptions pkco = new PemKeyCertOptions();
+		pkco.addKeyValue(privateKeyBuffer);
+		pkco.addCertValue(certificateBuffer);
+		
+		//PemTrustOptions pto = new PemTrustOptions();
+		//pto.addCertValue(certificateBuffer);
+		
+		/*
 		KeyStore keystore = KeyStore.getInstance("JKS");
 		keystore.load(null);
 		keystore.setCertificateEntry("cert-alias", certificate);
@@ -177,16 +214,18 @@ public class HttpServer {
 	    kmf.init(keystore, "changeit".toCharArray());
 		
 		JksOptions jksOptions = new JksOptions();
-		jksOptions.
+		*/
 		
 		
 		HttpServerOptions hso = new HttpServerOptions()
 		.setSsl(true)
-		.setKeyCertOptions(jksOptions);
+		.setKeyCertOptions(pkco)
+		//.setTrustOptions(pto)
 		
-		  //.setKeyCertOptions(certificate.keyCertOptions())
-		  //.setTrustOptions(certificate.trustOptions());
-			;
+		
+		  //.setKeyCertOptions(ssCert.keyCertOptions())
+		 // .setTrustOptions(ssCert.trustOptions());
+		;
 	
 		
 		
@@ -214,8 +253,9 @@ public class HttpServer {
 	private List<GeneralName> getThisSubjectAlternativeName(){
 	    List<GeneralName> subjectAlternativeName = new ArrayList<>();
 	    //subjectAlternativeName.add(new GeneralName(GeneralName.dNSName, "issuerDomainName.local"));
-	    subjectAlternativeName.add(new GeneralName(GeneralName.dNSName, "localhost"));
-	   
+	    //subjectAlternativeName.add(new GeneralName(GeneralName.dNSName, "localhost"));
+	    subjectAlternativeName.add(new GeneralName(GeneralName.iPAddress, "192.168.0.0"));
+	   //TODO iterate interfaces to get ip
 	    return subjectAlternativeName;
 	}
 	

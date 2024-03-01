@@ -242,9 +242,17 @@ public class UtilSSL {
 		issuedCertBuilder.addExtension(Extension.authorityKeyIdentifier, false,	issuedCertExtUtils.createAuthorityKeyIdentifier(rootCertificate));
 		issuedCertBuilder.addExtension(Extension.subjectKeyIdentifier, false, issuedCertExtUtils.createSubjectKeyIdentifier(csr.getSubjectPublicKeyInfo()));
 
+		KeyUsage keyUsage = new KeyUsage(
+				//KeyUsage.keyEncipherment | 
+				KeyUsage.digitalSignature
+				//|KeyUsage.keyCertSign 
+				//|KeyUsage.cRLSign
+				);
 		// Add intended key usage extension if needed
-		issuedCertBuilder.addExtension(Extension.keyUsage, false, new KeyUsage(KeyUsage.keyEncipherment));
-
+		issuedCertBuilder.addExtension(Extension.keyUsage, true, keyUsage);
+		
+		
+		
 		// Add DNS name is cert is to used for SSL
 		ASN1Encodable[] altNames = subjectAlternativeName.toArray(new ASN1Encodable[]{});
 		issuedCertBuilder.addExtension( Extension.subjectAlternativeName, false, new DERSequence(altNames) );
