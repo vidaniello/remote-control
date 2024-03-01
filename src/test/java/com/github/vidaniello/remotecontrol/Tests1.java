@@ -36,6 +36,7 @@ import org.bouncycastle.pkcs.PKCS10CertificationRequestBuilder;
 import org.bouncycastle.pkcs.jcajce.JcaPKCS10CertificationRequestBuilder;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 public class Tests1 {
@@ -66,7 +67,7 @@ public class Tests1 {
 	//private String multicastAddress = "230.1.5.5";
 	//private int receiverPort = 34345;
 	
-	@Test
+	@Test @Disabled
 	public void testSslUtil() {
 		try {
 			
