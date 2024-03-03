@@ -18,12 +18,14 @@ public class RootCAGeneration {
 
 	public static void main(String[] args) {
 			
+		
 		try {
 			UtilSSL.INSTANCE.getOrNewOrRenewRootCertificate(getRootName(), false);
 		} catch (CertificateException | NoSuchAlgorithmException | NoSuchProviderException | OperatorCreationException
 				| InvalidKeySpecException | IOException | PKCSException e) {
 			e.printStackTrace();
 		}
+		
 
 	}
 	

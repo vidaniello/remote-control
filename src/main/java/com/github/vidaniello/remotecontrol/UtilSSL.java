@@ -203,7 +203,7 @@ public class UtilSSL {
         calendar.add(Calendar.DATE, -1);
         Date startDate = calendar.getTime();
         
-        calendar.add(Calendar.YEAR, 1);
+        calendar.add(Calendar.YEAR, 10);
         Date expireDate = calendar.getTime();
 		
 		return new JcaX509v3CertificateBuilder(issuerName, generateNewSerialNumber(), startDate, expireDate, certificateName, publicKey);		
@@ -581,6 +581,17 @@ public class UtilSSL {
 		FileUtil.writeToFile(certificatePemFormat, certFile);
 	}
 	
+	public synchronized void replaceCertificateIfNotExist(byte[] certificatePemFormat, String commonName) throws IOException {
+		if(!exsistCertificateCommonNamefiles(commonName))
+			replaceCertificate(certificatePemFormat, commonName);
+	}
+	public synchronized void replaceCertificateIfNotExist(byte[] certificatePemFormat, X500Name x500name) throws IOException {
+		replaceCertificateIfNotExist(certificatePemFormat, getCommonName(x500name));
+	}
+		
+	
+	
+	
 	public synchronized void replacePrivateKey(byte[] pkPemFormat, X500Name x500name) throws IOException {
 		replacePrivateKey(pkPemFormat, getCommonName(x500name));
 	}
@@ -588,6 +599,14 @@ public class UtilSSL {
 	public synchronized void replacePrivateKey(byte[] pkPemFormat, String commonName) throws IOException {
 		File pkFile = getPkFile(commonName);
 		FileUtil.writeToFile(pkPemFormat, pkFile);
+	}
+	
+	public synchronized void replacePrivateKeyNotExist(byte[] certificatePemFormat, String commonName) throws IOException {
+		if(!exsistCertificateCommonNamefiles(commonName))
+			replaceCertificate(certificatePemFormat, commonName);
+	}
+	public synchronized void replacePrivateKeyIfNotExist(byte[] certificatePemFormat, X500Name x500name) throws IOException {
+		replaceCertificateIfNotExist(certificatePemFormat, getCommonName(x500name));
 	}
 	
 }

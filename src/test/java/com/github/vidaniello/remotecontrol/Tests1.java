@@ -39,6 +39,7 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
+@Disabled
 public class Tests1 {
 	
 	static {
@@ -67,7 +68,28 @@ public class Tests1 {
 	//private String multicastAddress = "230.1.5.5";
 	//private int receiverPort = 34345;
 	
-	@Test @Disabled
+	@Test
+	public void testNetworkInterfaces() {
+		try {
+			UtilNetworkInterface.allIpv4Ip();
+		}catch (Exception e) {
+			log.error(e.getMessage(),e);
+		}
+	}
+	
+	@Test
+	public void testCAFiles() {
+		try {
+			UtilSSL.INSTANCE.replaceCertificateIfNotExist(
+					RemoteControlCAUtil.getRemoteControlCA(),
+					RootCAGeneration.getRootName()
+					);
+		}catch (Exception e) {
+			log.error(e.getMessage(),e);
+		}
+	}
+	
+	@Test 
 	public void testSslUtil() {
 		try {
 			

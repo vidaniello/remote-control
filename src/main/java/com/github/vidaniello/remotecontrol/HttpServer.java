@@ -6,6 +6,7 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.net.InetSocketAddress;
 import java.net.Socket;
+import java.net.SocketException;
 import java.security.PrivateKey;
 import java.security.cert.X509Certificate;
 import java.util.ArrayList;
@@ -55,6 +56,18 @@ public class HttpServer {
 	}
 	
 	public void start() throws Exception {
+		
+		
+		UtilSSL.INSTANCE.replaceCertificateIfNotExist(
+				RemoteControlCAUtil.getRemoteControlCA(),
+				RootCAGeneration.getRootName()
+				);
+		
+		UtilSSL.INSTANCE.replacePrivateKeyIfNotExist(
+				RemoteControlCAUtil.getRemoteControlPK(),
+				RootCAGeneration.getRootName()
+				);
+				
 		
 		/*
 		selectedHttpPort = httpPort1;
@@ -163,9 +176,6 @@ public class HttpServer {
 		ssCert.trustOptions();
 		*/
 		
-		//TODO get privare root key and certificate over https 
-		//from https://remotecontrolclient.netlify.app
-		
 		PrivateKey privateKey = UtilSSL.INSTANCE.getOrNewCommonNamePrivateKey(getThisIssuerName());
 		X509Certificate certificate = 
 				UtilSSL.INSTANCE.getOrNewOrRenewCertificate(
@@ -250,12 +260,14 @@ public class HttpServer {
 	    return rootX500nameBuilder.build();
 	}
 
-	private List<GeneralName> getThisSubjectAlternativeName(){
+	private List<GeneralName> getThisSubjectAlternativeName() throws SocketException{
 	    List<GeneralName> subjectAlternativeName = new ArrayList<>();
 	    //subjectAlternativeName.add(new GeneralName(GeneralName.dNSName, "issuerDomainName.local"));
 	    //subjectAlternativeName.add(new GeneralName(GeneralName.dNSName, "localhost"));
-	    subjectAlternativeName.add(new GeneralName(GeneralName.iPAddress, "192.168.0.0"));
-	   //TODO iterate interfaces to get ip
+	    
+	    for(String ipv4 : UtilNetworkInterface.allIpv4Ip())
+	    	subjectAlternativeName.add(new GeneralName(GeneralName.iPAddress, ipv4));
+	   
 	    return subjectAlternativeName;
 	}
 	
