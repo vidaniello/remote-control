@@ -566,12 +566,6 @@ public class UtilSSL {
 	
 	
 	
-	
-	
-	
-	
-	
-	
 	public synchronized void replaceCertificate(byte[] certificatePemFormat, X500Name x500name) throws IOException {
 		replaceCertificate(certificatePemFormat, getCommonName(x500name));
 	}
@@ -591,22 +585,21 @@ public class UtilSSL {
 		
 	
 	
-	
-	public synchronized void replacePrivateKey(byte[] pkPemFormat, X500Name x500name) throws IOException {
-		replacePrivateKey(pkPemFormat, getCommonName(x500name));
-	}
-	
 	public synchronized void replacePrivateKey(byte[] pkPemFormat, String commonName) throws IOException {
 		File pkFile = getPkFile(commonName);
 		FileUtil.writeToFile(pkPemFormat, pkFile);
 	}
-	
-	public synchronized void replacePrivateKeyNotExist(byte[] certificatePemFormat, String commonName) throws IOException {
-		if(!exsistCertificateCommonNamefiles(commonName))
-			replaceCertificate(certificatePemFormat, commonName);
+		
+	public synchronized void replacePrivateKey(byte[] pkPemFormat, X500Name x500name) throws IOException {
+		replacePrivateKey(pkPemFormat, getCommonName(x500name));
 	}
-	public synchronized void replacePrivateKeyIfNotExist(byte[] certificatePemFormat, X500Name x500name) throws IOException {
-		replaceCertificateIfNotExist(certificatePemFormat, getCommonName(x500name));
+	
+	public synchronized void replacePrivateKeyNotExist(byte[] pkPemFormat, String commonName) throws IOException {
+		if(!exsistPkCommonNamefiles(commonName))
+			replacePrivateKey(pkPemFormat, commonName);
+	}
+	public synchronized void replacePrivateKeyIfNotExist(byte[] pkPemFormat, X500Name x500name) throws IOException {
+		replacePrivateKeyNotExist(pkPemFormat, getCommonName(x500name));
 	}
 	
 }

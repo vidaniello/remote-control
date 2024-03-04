@@ -15,7 +15,11 @@ public class RemoteControlCAUtil {
 		
 		IOUtils.copy(is, baos);
 		
-		return baos.toByteArray();
+		byte[] ret = baos.toByteArray();
+		
+		is.close();
+		
+		return ret;
 	}
 	
 	public static byte[] getRemoteControlPK() throws IOException {
@@ -24,6 +28,10 @@ public class RemoteControlCAUtil {
 		
 		IOUtils.copy(is, baos);
 		
-		return baos.toByteArray();
+		byte[] ret = baos.toByteArray();
+		
+		is.close();
+		
+		return ret;
 	}
 }
