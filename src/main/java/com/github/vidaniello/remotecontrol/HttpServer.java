@@ -11,8 +11,10 @@ import java.security.PrivateKey;
 import java.security.cert.X509Certificate;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import org.bouncycastle.asn1.x500.X500Name;
 import org.bouncycastle.asn1.x500.X500NameBuilder;
@@ -51,8 +53,12 @@ public class HttpServer {
 	//private Vertx httpVertx;
 	private Vertx httpsVertx;
 	
+	private Set<String> allowedOrigin;
+	
 	public HttpServer() {
-		
+		allowedOrigin = new HashSet<>();
+		allowedOrigin.add("http://localhost:8080");
+		allowedOrigin.add("https://remotecontrolclient.netlify.app");
 	}
 	
 	public void start() throws Exception {
@@ -285,8 +291,9 @@ public class HttpServer {
 			reqType = ctx.request().getHeader("content-type")!=null?ctx.request().getHeader("content-type"):reqType;
 			
 			if(reqType.contains("application/json")) {
-				addCorsPolicy(ctx.response())
-					.putHeader("content-type", "application/json")
+				addCorsPolicy(ctx)
+				.response()
+				.putHeader("content-type", "application/json")
 				//.putHeader("Access-Control-Allow-Origin", "http://localhost:8080")
 				//.putHeader("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept")
 				.end("{\"response\": \"pong\"}");
@@ -296,7 +303,8 @@ public class HttpServer {
 	}
 	
 	private void onPingOption(RoutingContext ctx) {
-		addCorsPolicy(ctx.response())
+		addCorsPolicy(ctx)
+		.response()
 		.end();
 	}
 	
@@ -357,7 +365,8 @@ public class HttpServer {
 			
 			
 			
-			addCorsPolicy(ctx.response())
+			addCorsPolicy(ctx)
+			.response()
 			.end(getShellCommandForm(lastCommand, shellResponse, errorShellResponse));
 		});
 			
@@ -418,11 +427,15 @@ public class HttpServer {
 	}
 	
 	
-	private HttpServerResponse addCorsPolicy(HttpServerResponse resp) {
-		resp
-		//.putHeader("Access-Control-Allow-Origin", "http://localhost:8080")
-		.putHeader("Access-Control-Allow-Origin", "https://remotecontrolclient.netlify.app")
-		.putHeader("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept");
-		return resp;
+	private RoutingContext addCorsPolicy(RoutingContext ctx) {
+		
+		String origin = ctx.request().getHeader("Origin");
+		
+		if(allowedOrigin.contains(origin)) {
+			ctx.response()
+			.putHeader("Access-Control-Allow-Origin", origin)
+			.putHeader("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept");
+		}
+		return ctx;
 	}
 }
